@@ -53,9 +53,9 @@ python file_compare.py [OPTIONS] PATH1 PATH2
 | `-o, --output` | Output filename | `comparison_results_[datetime].[format]` |
 | `-h, --help` | Show help message | - |
 
-### Examples
+## Examples
 
-#### Compare Two Single Directories
+### Compare Two Single Directories
 
 ```zsh
 # Normal mode (compare all files)
@@ -68,7 +68,7 @@ python file_compare.py -m proxy /path/to/originals /path/to/proxies
 python file_compare.py -f html /path/to/dir1 /path/to/dir2
 ```
 
-#### Compare Multiple Combined Directories
+### Compare Multiple Combined Directories
 
 ```zsh
 # Combine multiple source directories
@@ -81,7 +81,7 @@ python file_compare.py "/path/a1+/path/a2+/path/a3" "/path/b1+/path/b2"
 python file_compare.py -f html -o results.html "/dir1+/dir2" "/dir3+/dir4"
 ```
 
-#### Real-World Scenarios
+### Real-World Scenarios
 
 **Video Production Workflow:**
 ```zsh
