@@ -126,10 +126,6 @@ Compares video files by basename only, ignoring file extensions.
 - **Example**: `video.mp4` and `video.mov` are treated as the same file
 - **Supported formats**: `.mp4`, `.mov`, `.mxf`, `.avi`, `.mkv`, `.m4v`, `.mpg`, `.mpeg`, `.webm`, `.flv`, `.vob`, `.ogv`, `.ogg`, `.dv`, `.qt`, `.f4v`, `.m2ts`, `.ts`, `.3gp`, `.3g2`
 
-## Output Formats
-
-
-
 ## Project Structure
 
 ```
@@ -143,25 +139,3 @@ File_Compare/
 │   └── exporters.py       # Export format handlers
 └── README.md
 ```
-
-## Version History
-
-### v1.1.3 (Current)
-- Fixed system directory skipping ($RECYCLE.BIN, .Trash, etc.)
-- Improved directory traversal to skip system folders entirely
-
-### v1.1.2
-- Added display of absolute output file path
-
-### v1.1.1
-- Fixed character encoding issues for non-ASCII filenames
-- Improved HTML output for Safari compatibility
-- Added UTF-8 BOM for better browser/Excel support
-
-### v1.1.0
-- Added multiple directory comparison support with `+` separator
-- Parallel directory scanning for improved performance
-
-### v1.0.0
-- Initial release with normal and proxy comparison modes
-- Support for JSON, TXT, CSV, HTML export formats
