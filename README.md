@@ -2,8 +2,6 @@
 
 A Python command-line tool for comparing files between directories, with special support for video file proxy workflows.
 
-## Features
-
 - **Two Comparison Modes:**
   - **Normal Mode**: Compare all files by full filename (basename + extension)
   - **Proxy Mode**: Compare video files by basename only (ignoring extensions)
@@ -21,13 +19,13 @@ A Python command-line tool for comparing files between directories, with special
 
 - **Parallel Scanning**: Uses multi-threading for faster directory scanning
 
-## Installation
-
-### Prerequisites
+## Prerequisites
 
 - Python 3.6 or higher
 
-### Clone the Repository
+## Installation
+
+Clone the Repository
 
 ```zsh
 git clone https://github.com/yourusername/File_Compare.git
@@ -35,6 +33,20 @@ cd File_Compare
 ```
 
 No additional dependencies required - uses Python standard library only.
+
+## Project Structure
+
+```
+File_Compare/
+├── file_compare.py         # Main entry point
+├── src/
+│   ├── __init__.py        # Version and package info
+│   ├── normal_compare.py  # Normal comparison mode
+│   ├── proxy_compare.py   # Proxy comparison mode
+│   ├── file_utils.py      # File filtering utilities
+│   └── exporters.py       # Export format handlers
+└── README.md
+```
 
 ## Usage
 
@@ -52,6 +64,24 @@ python file_compare.py [OPTIONS] PATH1 PATH2
 | `-m, --mode` | Comparison mode: `normal`, `proxy` | `normal` |
 | `-o, --output` | Output filename | `comparison_results_[datetime].[format]` |
 | `-h, --help` | Show help message | - |
+
+
+### Normal Mode (Default)
+
+Compares files by their complete filename including extension.
+
+- **Use case**: General file comparison, backup verification
+- **Key**: `filename.extension`
+- **Example**: `video.mp4` and `video.mov` are treated as different files
+
+### Proxy Mode
+
+Compares video files by basename only, ignoring file extensions.
+
+- **Use case**: Video proxy workflows where originals and proxies have different formats
+- **Key**: `filename` (without extension)
+- **Example**: `video.mp4` and `video.mov` are treated as the same file
+- **Supported formats**: `.mp4`, `.mov`, `.mxf`, `.avi`, `.mkv`, `.m4v`, `.mpg`, `.mpeg`, `.webm`, `.flv`, `.vob`, `.ogv`, `.ogg`, `.dv`, `.qt`, `.f4v`, `.m2ts`, `.ts`, `.3gp`, `.3g2`
 
 ## Examples
 
@@ -105,37 +135,4 @@ python file_compare.py -f csv \
 python file_compare.py -f json \
   "/Archive/2024/Q1+/Archive/2024/Q2+/Archive/2024/Q3" \
   /CurrentProjects
-```
-
-## Comparison Modes
-
-### Normal Mode (Default)
-
-Compares files by their complete filename including extension.
-
-- **Use case**: General file comparison, backup verification
-- **Key**: `filename.extension`
-- **Example**: `video.mp4` and `video.mov` are treated as different files
-
-### Proxy Mode
-
-Compares video files by basename only, ignoring file extensions.
-
-- **Use case**: Video proxy workflows where originals and proxies have different formats
-- **Key**: `filename` (without extension)
-- **Example**: `video.mp4` and `video.mov` are treated as the same file
-- **Supported formats**: `.mp4`, `.mov`, `.mxf`, `.avi`, `.mkv`, `.m4v`, `.mpg`, `.mpeg`, `.webm`, `.flv`, `.vob`, `.ogv`, `.ogg`, `.dv`, `.qt`, `.f4v`, `.m2ts`, `.ts`, `.3gp`, `.3g2`
-
-## Project Structure
-
-```
-File_Compare/
-├── file_compare.py         # Main entry point
-├── src/
-│   ├── __init__.py        # Version and package info
-│   ├── normal_compare.py  # Normal comparison mode
-│   ├── proxy_compare.py   # Proxy comparison mode
-│   ├── file_utils.py      # File filtering utilities
-│   └── exporters.py       # Export format handlers
-└── README.md
 ```
