@@ -1,5 +1,5 @@
 """
-File Comparison Tool
+File_Compare
 -------------------
 A tool for comparing video files between directories.
 
