@@ -30,8 +30,8 @@ A Python command-line tool for comparing files between directories, with special
 ### Clone the Repository
 
 ```zsh
-git clone https://github.com/yourusername/file-comparison-tool.git
-cd file-comparison-tool
+git clone https://github.com/yourusername/File_Compare.git
+cd File_Compare
 ```
 
 No additional dependencies required - uses Python standard library only.
@@ -133,7 +133,7 @@ Compares video files by basename only, ignoring file extensions.
 ## Project Structure
 
 ```
-file-comparison-tool/
+File_Compare/
 ├── file_compare.py         # Main entry point
 ├── src/
 │   ├── __init__.py        # Version and package info
