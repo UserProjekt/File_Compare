@@ -1,6 +1,7 @@
 import os
 import subprocess
 import json
+import platform
 
 def should_skip_file(filename):
     """Check if a filename should be skipped"""
@@ -42,19 +43,6 @@ def should_skip_path(path):
     path_parts = path.split(os.sep)
     return any(part in skip_directories for part in path_parts)
 
-def is_video_file(filename):
-    """Check if file is video"""
-    video_extensions = {
-        '.mp4', '.mov', '.mxf',  # Common video formats
-        '.avi', '.wmv', '.mkv',
-        '.m4v', '.mpg', '.mpeg',
-        '.webm', '.flv', '.vob',
-        '.ogv', '.ogg', '.dv',
-        '.qt', '.f4v', '.m2ts',
-        '.ts', '.3gp', '.3g2'
-    }
-    return os.path.splitext(filename)[1].lower() in video_extensions
-
 def get_video_extensions():
     """Get set of video extensions"""
     return {
@@ -66,6 +54,10 @@ def get_video_extensions():
         '.qt', '.f4v', '.m2ts',
         '.ts', '.3gp', '.3g2'
     }
+
+def is_video_file(filename):
+    """Check if file is video"""
+    return os.path.splitext(filename)[1].lower() in get_video_extensions()
 
 def check_mediainfo_installed():
     """Check if mediainfo CLI is installed"""
@@ -84,17 +76,44 @@ def get_video_frame_count(video_path):
     Returns None if unable to get frame count
     """
     try:
-        # Run mediainfo with JSON output
-        result = subprocess.run(
-            ['mediainfo', '--Output=JSON', video_path],
-            capture_output=True,
-            text=True,
-            timeout=30,
-            check=True
-        )
+        # Run mediainfo with JSON output - handle encoding properly on Windows
+        if platform.system() == 'Windows':
+            # On Windows, capture as bytes to handle encoding issues
+            result = subprocess.run(
+                ['mediainfo', '--Output=JSON', video_path],
+                capture_output=True,
+                text=False,  # Get bytes instead of text
+                timeout=30,
+                check=True
+            )
+            
+            # Try to decode with different encodings
+            try:
+                output = result.stdout.decode('utf-8')
+            except UnicodeDecodeError:
+                try:
+                    output = result.stdout.decode('utf-8-sig')
+                except UnicodeDecodeError:
+                    try:
+                        import locale
+                        encoding = locale.getpreferredencoding()
+                        output = result.stdout.decode(encoding)
+                    except UnicodeDecodeError:
+                        output = result.stdout.decode('utf-8', errors='ignore')
+        else:
+            # On macOS/Linux, use text mode with UTF-8
+            result = subprocess.run(
+                ['mediainfo', '--Output=JSON', video_path],
+                capture_output=True,
+                text=True,
+                encoding='utf-8',
+                timeout=30,
+                check=True
+            )
+            output = result.stdout
         
         # Parse JSON output
-        data = json.loads(result.stdout)
+        data = json.loads(output)
         
         # Navigate the JSON structure to find frame count
         if 'media' in data and 'track' in data['media']:
@@ -127,15 +146,43 @@ def get_video_metadata(video_path):
     Returns dict with metadata or None if failed
     """
     try:
-        result = subprocess.run(
-            ['mediainfo', '--Output=JSON', video_path],
-            capture_output=True,
-            text=True,
-            timeout=30,
-            check=True
-        )
+        # Handle encoding properly on Windows
+        if platform.system() == 'Windows':
+            # On Windows, capture as bytes to handle encoding issues
+            result = subprocess.run(
+                ['mediainfo', '--Output=JSON', video_path],
+                capture_output=True,
+                text=False,  # Get bytes instead of text
+                timeout=30,
+                check=True
+            )
+            
+            # Try to decode with different encodings
+            try:
+                output = result.stdout.decode('utf-8')
+            except UnicodeDecodeError:
+                try:
+                    output = result.stdout.decode('utf-8-sig')
+                except UnicodeDecodeError:
+                    try:
+                        import locale
+                        encoding = locale.getpreferredencoding()
+                        output = result.stdout.decode(encoding)
+                    except UnicodeDecodeError:
+                        output = result.stdout.decode('utf-8', errors='ignore')
+        else:
+            # On macOS/Linux, use text mode with UTF-8
+            result = subprocess.run(
+                ['mediainfo', '--Output=JSON', video_path],
+                capture_output=True,
+                text=True,
+                encoding='utf-8',
+                timeout=30,
+                check=True
+            )
+            output = result.stdout
         
-        data = json.loads(result.stdout)
+        data = json.loads(output)
         metadata = {
             'frame_count': None,
             'duration': None,

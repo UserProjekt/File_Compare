@@ -1,224 +1,223 @@
-import argparse
-import sys
-import time
-from datetime import datetime
 import os
-from concurrent.futures import ThreadPoolExecutor, as_completed
+import sys
+import argparse
+from datetime import datetime
+from pathlib import Path
 
-from src import normal_compare, proxy_compare
-from src.exporters import Exporter
+# Add src to path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
-def parse_directory_groups(path_str):
-    """Parse directory groups like 'dir1+dir2+dir3' into list of paths"""
-    paths = [p.strip() for p in path_str.split('+')]
-    
-    # Validate all paths exist
-    for path in paths:
-        if not os.path.exists(path):
-            print(f"Error: Path does not exist: {path}")
-            sys.exit(1)
-    
-    return paths
+from src.exporters import export_to_json, export_to_txt, export_to_csv, export_to_html
 
-def merge_files_dicts(files_dicts, mode='normal', advanced=False):
-    """Merge multiple file dictionaries, handling conflicts"""
-    merged = {}
-    conflicts = []
+def compare_simple(files1, files2):
+    """
+    Simple comparison that finds unique files in each group.
     
-    for files_dict in files_dicts:
-        for key, value in files_dict.items():
-            if key in merged:
-                # Handle conflict - keep first occurrence but log it
-                existing_path = merged[key]['path'] if advanced else merged[key]
-                new_path = value['path'] if advanced else value
-                conflicts.append({
-                    'key': key,
-                    'existing_path': existing_path,
-                    'new_path': new_path
-                })
-            else:
-                merged[key] = value
+    Args:
+        files1: Dictionary of files from first group
+        files2: Dictionary of files from second group
     
-    return merged, conflicts
-
-def scan_multiple_directories(directories, compare_module):
-    """Scan multiple directories in parallel and merge results"""
-    all_files_dicts = []
-    
-    with ThreadPoolExecutor(max_workers=min(len(directories), 4)) as executor:
-        future_to_dir = {executor.submit(compare_module.get_files_dict, dir_path): dir_path 
-                        for dir_path in directories}
-        
-        for future in as_completed(future_to_dir):
-            dir_path = future_to_dir[future]
-            try:
-                files_dict = future.result()
-                all_files_dicts.append(files_dict)
-                print(f"  Scanned {dir_path}: {len(files_dict)} files")
-            except Exception as e:
-                print(f"  Error scanning {dir_path}: {str(e)}")
-    
-    # Merge all dictionaries
-    merged_dict, conflicts = merge_files_dicts(all_files_dicts)
-    
-    if conflicts:
-        print(f"  Warning: {len(conflicts)} filename conflicts found (kept first occurrence)")
-    
-    return merged_dict
+    Returns:
+        tuple: (unique1, unique2, frame_mismatches)
+               frame_mismatches is always empty list for simple comparison
+    """
+    unique1 = set(files1.keys()) - set(files2.keys())
+    unique2 = set(files2.keys()) - set(files1.keys())
+    return unique1, unique2, []
 
 def compare_advanced(files1, files2):
     """
-    Advanced comparison for proxy mode with frame count checking
-    Returns: unique1, unique2, frame_mismatches
+    Advanced comparison for proxy mode with frame count verification.
+    First performs simple comparison, then checks frame counts.
+    
+    Args:
+        files1: Dictionary with frame count info from first group
+        files2: Dictionary with frame count info from second group
+    
+    Returns:
+        tuple: (unique1, unique2, frame_mismatches)
     """
+    # First do the simple comparison
+    unique1, unique2, _ = compare_simple(files1, files2)
+    
+    # Then check frame counts for common files
     keys1 = set(files1.keys())
     keys2 = set(files2.keys())
+    common_keys = keys1 & keys2
     
-    unique1 = keys1 - keys2
-    unique2 = keys2 - keys1
-    common = keys1 & keys2
-    
-    # Check frame count mismatches for common files
     frame_mismatches = []
-    for basename in common:
-        fc1 = files1[basename]['frame_count']
-        fc2 = files2[basename]['frame_count']
+    for key in common_keys:
+        file1_info = files1[key]
+        file2_info = files2[key]
         
-        # Only report mismatch if both have valid frame counts and they differ
-        if fc1 is not None and fc2 is not None and fc1 != fc2:
-            frame_mismatches.append({
-                'basename': basename,
-                'file1': files1[basename]['filename'],
-                'file2': files2[basename]['filename'],
-                'path1': files1[basename]['path'],
-                'path2': files2[basename]['path'],
-                'frames1': fc1,
-                'frames2': fc2,
-                'difference': abs(fc1 - fc2)
-            })
+        frame1 = file1_info.get('frame_count')
+        frame2 = file2_info.get('frame_count')
+        
+        if frame1 is not None and frame2 is not None and frame1 != frame2:
+            mismatch = {
+                'basename': key,  # Changed from 'key' to 'basename' to match exporter
+                'file1': file1_info['filename'],
+                'file2': file2_info['filename'],
+                'frames1': frame1,
+                'frames2': frame2,
+                'difference': abs(frame1 - frame2),
+                'path1': file1_info['path'],  # Added path1
+                'path2': file2_info['path']   # Added path2
+            }
+            frame_mismatches.append(mismatch)
     
     return unique1, unique2, frame_mismatches
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Compare files between directories',
-        epilog='Examples:\n'
-               '  Single directories: python file_compare.py /path/a /path/b\n'
-               '  Multiple directories: python file_compare.py "/path/a1+/path/a2" "/path/b1+/path/b2"\n'
-               '  Advanced proxy mode: python file_compare.py -m proxy -a /originals /proxies',
-        formatter_class=argparse.RawDescriptionHelpFormatter
+        description='Compare files between directories with support for video proxy workflows',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog='''
+Modes:
+  normal    Compare all files by full filename (default)
+  proxy     Compare video files by basename only
+  proxyadv  Proxy mode with frame count verification (requires mediainfo)
+
+Examples:
+  %(prog)s /path/to/dir1 /path/to/dir2
+  %(prog)s -m proxy /originals /proxies
+  %(prog)s -m proxyadv -f html /originals /proxies
+  %(prog)s "/dir1+/dir2" "/dir3"  # Compare combined directories
+        '''
     )
-    parser.add_argument('path1', help='First directory path(s), use + to combine multiple dirs (e.g., "dir1+dir2")')
-    parser.add_argument('path2', help='Second directory path(s), use + to combine multiple dirs (e.g., "dir1+dir2")')
+    
+    parser.add_argument('path1', help='First directory or directories (use + to combine multiple)')
+    parser.add_argument('path2', help='Second directory or directories (use + to combine multiple)')
     parser.add_argument('-f', '--format', choices=['json', 'txt', 'csv', 'html'], 
-                        default='txt', help='default: txt')
-    parser.add_argument('-m', '--mode', 
-                        choices=['normal', 'proxy'],
-                        default='normal', 
-                        help='normal: compare all files by basename.extension | '
-                             'proxy: compare video files by basename only')
-    parser.add_argument('-a', '--adv', '--advanced', action='store_true',
-                        help='Advanced mode (proxy only): compare frame counts to detect incomplete proxies (requires mediainfo)')
-    parser.add_argument('-o', '--output', help='Output file name (default: comparison_results_[datetime].[format])')
+                       default='txt', help='Output format (default: txt)')
+    parser.add_argument('-m', '--mode', choices=['normal', 'proxy', 'proxyadv'],
+                       default='normal', help='Comparison mode (default: normal)')
+    parser.add_argument('-o', '--output', help='Output filename')
+    
     args = parser.parse_args()
-
-    try:
-        # Validate advanced mode
-        if args.adv and args.mode != 'proxy':
-            print("Error: -a/--adv/--advanced flag can only be used with -m proxy mode")
-            sys.exit(1)
-        
-        # Parse directory groups
-        dirs1 = parse_directory_groups(args.path1)
-        dirs2 = parse_directory_groups(args.path2)
-        
-        # Set default output filename if not provided
-        if not args.output:
-            mode_suffix = '_advanced' if args.adv else ''
-            args.output = f"comparison_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}{mode_suffix}.{args.format}"
-        
-        # Convert output path to absolute path
-        output_path = os.path.abspath(args.output)
-
-        start_time = time.time()
-        
-        # Choose mode
-        if args.adv:
-            from src import proxy_compare_advanced
-            compare_module = proxy_compare_advanced
-            mode_display = "proxy (advanced)"
+    
+    # Import the appropriate comparison module based on mode
+    if args.mode == 'proxy':
+        from src.proxy_compare import get_files_dict
+        print("Mode: Proxy comparison (by basename only)")
+        mode_name = 'proxy'
+    elif args.mode == 'proxyadv':
+        from src.proxy_compare_advanced import get_files_dict
+        print("Mode: Advanced proxy comparison (with frame verification)")
+        mode_name = 'proxy_advanced'
+    else:
+        from src.normal_compare import get_files_dict
+        print("Mode: Normal comparison")
+        mode_name = 'normal'
+    
+    # Parse paths
+    paths1 = [p.strip() for p in args.path1.split('+')]
+    paths2 = [p.strip() for p in args.path2.split('+')]
+    
+    # Display paths being compared
+    print(f"\nGroup 1 ({len(paths1)} path{'s' if len(paths1) > 1 else ''}):")
+    for p in paths1:
+        print(f"  - {p}")
+    
+    print(f"\nGroup 2 ({len(paths2)} path{'s' if len(paths2) > 1 else ''}):")
+    for p in paths2:
+        print(f"  - {p}")
+    
+    # Validate all paths
+    all_paths = paths1 + paths2
+    for path in all_paths:
+        if not os.path.exists(path):
+            print(f"\nError: Path does not exist: {path}")
+            return 1
+    
+    # Scan directories
+    print("\nScanning directories...")
+    files1 = {}
+    files2 = {}
+    
+    # Scan group 1
+    for path in paths1:
+        print(f"Scanning: {path}")
+        files = get_files_dict(path)
+        for key, value in files.items():
+            if key not in files1:
+                files1[key] = value
+    
+    # Scan group 2
+    for path in paths2:
+        print(f"Scanning: {path}")
+        files = get_files_dict(path)
+        for key, value in files.items():
+            if key not in files2:
+                files2[key] = value
+    
+    print(f"\nFound {len(files1)} unique items in group 1")
+    print(f"Found {len(files2)} unique items in group 2")
+    
+    # Compare files using the appropriate comparison function
+    if args.mode == 'proxyadv':
+        unique1, unique2, frame_mismatches = compare_advanced(files1, files2)
+        print(f"Frame count mismatches found: {len(frame_mismatches)}")
+    else:
+        unique1, unique2, frame_mismatches = compare_simple(files1, files2)
+    
+    print(f"\nComparison Results:")
+    print(f"Files only in group 1: {len(unique1)}")
+    print(f"Files only in group 2: {len(unique2)}")
+    
+    # Generate output filename if not provided
+    if not args.output:
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        args.output = f"comparison_results_{timestamp}.{args.format}"
+    
+    # Ensure output has correct extension
+    if not args.output.endswith(f'.{args.format}'):
+        args.output = f"{args.output}.{args.format}"
+    
+    # Prepare data for the exporters (matching the structure they expect)
+    # Get full paths for unique files
+    unique1_full_paths = []
+    for key in unique1:
+        if args.mode == 'proxyadv':
+            unique1_full_paths.append(files1[key]['path'])
         else:
-            compare_module = normal_compare if args.mode == 'normal' else proxy_compare
-            mode_display = args.mode
-        
-        print(f"Scanning directories in {mode_display} mode...")
-        
-        # Scan directory groups
-        print(f"Group 1 ({len(dirs1)} directories):")
-        files1 = scan_multiple_directories(dirs1, compare_module)
-        
-        print(f"Group 2 ({len(dirs2)} directories):")
-        files2 = scan_multiple_directories(dirs2, compare_module)
-        
-        print(f"\nTotal found: {len(files1)} unique files in group 1, {len(files2)} unique files in group 2")
+            unique1_full_paths.append(files1[key])
 
-        # Compare files
-        if args.adv:
-            unique1, unique2, frame_mismatches = compare_advanced(files1, files2)
-            print(f"Frame count mismatches found: {len(frame_mismatches)}")
+    unique2_full_paths = []
+    for key in unique2:
+        if args.mode == 'proxyadv':
+            unique2_full_paths.append(files2[key]['path'])
         else:
-            unique1 = set(files1.keys()) - set(files2.keys())
-            unique2 = set(files2.keys()) - set(files1.keys())
-            frame_mismatches = []
+            unique2_full_paths.append(files2[key])
 
-        # Export results with updated path information
-        print("Exporting results...")
-        export_method = getattr(Exporter, f'to_{args.format}')
+    export_data = {
+        'mode': mode_name,
+        'path1': args.path1,
+        'path2': args.path2,
+        'dirs1': paths1,
+        'dirs2': paths2,
+        'unique1': sorted(unique1_full_paths),
+        'unique2': sorted(unique2_full_paths)
+    }
         
-        # Create display paths for multiple directories
-        display_path1 = ' + '.join(dirs1) if len(dirs1) > 1 else dirs1[0]
-        display_path2 = ' + '.join(dirs2) if len(dirs2) > 1 else dirs2[0]
-        
-        # Prepare data for export
-        if args.adv:
-            export_data = {
-                'mode': 'proxy_advanced',
-                'path1': display_path1,
-                'path2': display_path2,
-                'dirs1': dirs1,
-                'dirs2': dirs2,
-                'unique1': [files1[f]['path'] for f in unique1],
-                'unique2': [files2[f]['path'] for f in unique2],
-                'frame_mismatches': frame_mismatches
-            }
-        else:
-            export_data = {
-                'mode': args.mode,
-                'path1': display_path1,
-                'path2': display_path2,
-                'dirs1': dirs1,
-                'dirs2': dirs2,
-                'unique1': [files1[f] for f in unique1],
-                'unique2': [files2[f] for f in unique2]
-            }
-        
-        export_method(export_data, output_path)
+    # Add frame mismatches if present
+    if frame_mismatches:
+        export_data['frame_mismatches'] = frame_mismatches
+    
+    # Export results
+    output_path = Path(args.output).resolve()
+    
+    if args.format == 'json':
+        export_to_json(export_data, args.output)
+    elif args.format == 'csv':
+        export_to_csv(export_data, args.output)
+    elif args.format == 'html':
+        export_to_html(export_data, args.output)
+    else:  # txt
+        export_to_txt(export_data, args.output)
+    
+    print(f"\nResults exported to: {output_path}")
+    return 0
 
-        print(f"\nResults have been exported to: {output_path}")
-        print(f"Files only in group 1: {len(unique1)}")
-        print(f"Files only in group 2: {len(unique2)}")
-        if args.adv:
-            print(f"Frame count mismatches: {len(frame_mismatches)}")
-        print(f"Total execution time: {time.time() - start_time:.2f} seconds")
-
-    except KeyboardInterrupt:
-        print("\nOperation cancelled by user")
-        sys.exit(1)
-    except Exception as e:
-        print(f"An error occurred: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        sys.exit(1)
-
-if __name__ == "__main__":
-    main()
+if __name__ == '__main__':
+    sys.exit(main())

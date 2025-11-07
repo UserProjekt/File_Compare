@@ -4,26 +4,19 @@ File Comparison Tool
 A tool for comparing video files between directories.
 
 Usage:
-    file_compare.py [-h] [-f {json,txt,csv,html}] [-m {normal,proxy}] [--adv]
+    file_compare.py [-h] [-f {json,txt,csv,html}] [-m {normal,proxy,proxyadv}] [-o OUTPUT] path1 path2
 
 Options:
   -h, --help            show this help message and exit
   -f {json,txt,csv,html}, --format {json,txt,csv,html}
                         default: txt
-  -m {normal,proxy}, --mode {normal,proxy}
+  -m {normal,proxy,proxyadv}, --mode {normal,proxy,proxyadv}
                         normal: compare all files by basename.extension |
-                        proxy: compare video files by basename only
-  -a --adv --advanced   Advanced mode (proxy only): also compare frame counts
-                        to detect incomplete proxy files (requires mediainfo CLI)
+                        proxy: compare video files by basename only |
+                        proxyadv: proxy mode with frame count verification (requires mediainfo)
   -o OUTPUT, --output OUTPUT
                         Output file name (default:
                         comparison_results_[datetime].[format])
-
-
-
-
-
-
 
 New in v1.1.0:
     Multiple directory comparison support
@@ -47,11 +40,17 @@ New in v1.1.3:
 
 New in v1.2.0:
     Advanced proxy comparison mode
-    - Use --adv flag with proxy mode to compare frame counts
+    - Use -m proxyadv to enable frame count verification
     - Detects incomplete or corrupted proxy files
     - Reports frame count mismatches between original and proxy files
     - Requires mediainfo CLI tool to be installed
+
+New in v1.3.0:
+    Simplified mode selection
+    - Removed -a/--adv/--advanced flag
+    - Advanced proxy mode is now directly selectable with -m proxyadv
+    - Cleaner command-line interface
 """
 
-__version__ = '1.2.0'
+__version__ = "1.3.0"
 __author__ = 'userprojekt'
