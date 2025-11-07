@@ -6,6 +6,8 @@ A Python command-line tool for comparing files between directories, with special
   - **Normal Mode**: Compare all files by full filename (basename + extension)
   - **Proxy Mode**: Compare video files by basename only (ignoring extensions)
 
+- **Advanced Proxy Verification**: Optional frame count comparison to detect incomplete proxy files (requires mediainfo CLI)
+
 - **Multiple Directory Support**: Combine multiple directories into single comparison groups using `+` separator
 
 - **Multiple Export Formats**: Export results in JSON, TXT, CSV, or HTML format
@@ -22,6 +24,22 @@ A Python command-line tool for comparing files between directories, with special
 ## Prerequisites
 
 - Python 3.6 or higher
+- **Optional**: `mediainfo` CLI tool (required for advanced proxy mode with frame count verification)
+
+### Installing mediainfo (Optional)
+
+**macOS:**
+```zsh
+brew install mediainfo
+```
+
+**Linux:**
+```zsh
+sudo apt-get install mediainfo
+```
+
+**Windows:**
+Download from [MediaArea.net](https://mediaarea.net/en/MediaInfo/Download)
 
 ## Installation
 
@@ -32,7 +50,7 @@ git clone https://github.com/yourusername/File_Compare.git
 cd File_Compare
 ```
 
-No additional dependencies required - uses Python standard library only.
+No additional Python dependencies required - uses Python standard library only.
 
 ## Project Structure
 
@@ -62,6 +80,7 @@ python file_compare.py [OPTIONS] PATH1 PATH2
 |--------|-------------|---------|
 | `-f, --format` | Output format: `json`, `txt`, `csv`, `html` | `txt` |
 | `-m, --mode` | Comparison mode: `normal`, `proxy` | `normal` |
+| `-a, --adv, --advanced` | Advanced mode: compare frame counts (proxy mode only, requires mediainfo) | `False` |
 | `-o, --output` | Output filename | `comparison_results_[datetime].[format]` |
 | `-h, --help` | Show help message | - |
 
@@ -83,6 +102,15 @@ Compares video files by basename only, ignoring file extensions.
 - **Example**: `video.mp4` and `video.mov` are treated as the same file
 - **Supported formats**: `.mp4`, `.mov`, `.mxf`, `.avi`, `.mkv`, `.m4v`, `.mpg`, `.mpeg`, `.webm`, `.flv`, `.vob`, `.ogv`, `.ogg`, `.dv`, `.qt`, `.f4v`, `.m2ts`, `.ts`, `.3gp`, `.3g2`
 
+### Advanced Proxy Mode
+
+Adds frame count verification to detect incomplete proxy files.
+
+- **Requirements**: mediainfo CLI tool must be installed
+- **Use case**: Verify that proxy files have the same number of frames as originals
+- **Detection**: Identifies proxies that may have been cut short during encoding
+- **Flag**: `-a`, `--adv`, or `--advanced` (can only be used with `-m proxy`)
+
 ## Examples
 
 ### Compare Two Single Directories
@@ -93,6 +121,9 @@ python file_compare.py /path/to/dir1 /path/to/dir2
 
 # Proxy mode (compare video files by basename)
 python file_compare.py -m proxy /path/to/originals /path/to/proxies
+
+# Advanced proxy mode (also verify frame counts)
+python file_compare.py -m proxy -a /path/to/originals /path/to/proxies
 
 # Export to HTML
 python file_compare.py -f html /path/to/dir1 /path/to/dir2
@@ -119,6 +150,11 @@ python file_compare.py -f html -o results.html "/dir1+/dir2" "/dir3+/dir4"
 python file_compare.py -m proxy -f html \
   /Volumes/Storage/Originals \
   /Volumes/EditDrive/Proxies
+
+# Advanced verification with frame count checking
+python file_compare.py -m proxy --advanced -f html \
+  /Volumes/Storage/Originals \
+  /Volumes/EditDrive/Proxies
 ```
 
 **Backup Verification:**
@@ -136,3 +172,43 @@ python file_compare.py -f json \
   "/Archive/2024/Q1+/Archive/2024/Q2+/Archive/2024/Q3" \
   /CurrentProjects
 ```
+
+**Quality Control for Proxy Encoding:**
+```zsh
+# Verify all proxies are complete (not truncated)
+python file_compare.py -m proxy -a -o proxy_qc.html -f html \
+  /Production/Camera_Originals \
+  /Production/Proxies
+```
+
+## Updates
+
+New in v1.1.0:
+    Multiple directory comparison support
+    - python file_compare.py "/dir1+/dir2" "/dir3"
+    - python file_compare.py "/dir1+/dir2+/dir3" "/dir4+/dir5"
+    - Use '+' to combine multiple directories into a single comparison group.
+
+New in v1.1.1:
+    Fixed character encoding issues for non-ASCII filenames
+    - HTML output now properly displays Chinese/Unicode characters in Safari
+    - Added UTF-8 BOM to HTML files for better browser compatibility
+    - Improved CSV encoding for Excel compatibility
+
+New in v1.1.2:
+    Displays the absolute path of output file
+
+New in v1.1.3:
+    Fixed system directory skipping ($RECYCLE.BIN, .Trash, etc.)
+    - Properly excludes files in Windows Recycle Bin and other system directories
+    - Improved directory traversal to skip system folders entirely
+
+New in v1.2.0:
+    Advanced proxy comparison mode
+    - Use --adv flag with proxy mode to compare frame counts
+    - Detects incomplete or corrupted proxy files
+    - Reports frame count mismatches between original and proxy files
+    - Requires mediainfo CLI tool to be installed
+
+
+
