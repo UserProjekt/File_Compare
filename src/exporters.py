@@ -32,6 +32,7 @@ class Exporter:
             }
             .path1 { background-color: #ffeeee; }
             .path2 { background-color: #eeffee; }
+            .mismatch { background-color: #fff3cd; }
             .path-header { 
                 background-color: #f8f9fa;
                 padding: 20px;
@@ -72,6 +73,17 @@ class Exporter:
             .dir-list li {
                 margin-bottom: 5px;
             }
+            .warning-box {
+                background-color: #fff3cd;
+                border: 1px solid #ffc107;
+                border-radius: 6px;
+                padding: 20px;
+                margin: 30px 0;
+            }
+            .warning-box h3 {
+                margin: 0 0 15px 0;
+                color: #856404;
+            }
         """
 
     @staticmethod
@@ -91,6 +103,11 @@ class Exporter:
             'files_only_in_group1': data['unique1'],
             'files_only_in_group2': data['unique2']
         }
+        
+        # Add frame mismatches if in advanced mode
+        if 'frame_mismatches' in data:
+            results['frame_count_mismatches'] = data['frame_mismatches']
+        
         with open(output_file, 'w', encoding='utf-8') as f:
             json.dump(results, f, indent=4, ensure_ascii=False)
 
@@ -127,11 +144,24 @@ class Exporter:
             f.write(f"({len(data['unique2'])} files):\n")
             for file in sorted(data['unique2']):
                 f.write(f"{file}\n")
+            
+            # Frame mismatches if in advanced mode
+            if 'frame_mismatches' in data and data['frame_mismatches']:
+                f.write(f"\n{'='*80}\n")
+                f.write(f"FRAME COUNT MISMATCHES ({len(data['frame_mismatches'])} files)\n")
+                f.write(f"{'='*80}\n\n")
+                for mismatch in sorted(data['frame_mismatches'], key=lambda x: x['difference'], reverse=True):
+                    f.write(f"Basename: {mismatch['basename']}\n")
+                    f.write(f"  Group 1: {mismatch['file1']} ({mismatch['frames1']} frames)\n")
+                    f.write(f"  Group 2: {mismatch['file2']} ({mismatch['frames2']} frames)\n")
+                    f.write(f"  Difference: {mismatch['difference']} frames\n")
+                    f.write(f"  Path 1: {mismatch['path1']}\n")
+                    f.write(f"  Path 2: {mismatch['path2']}\n\n")
 
     @staticmethod
     def to_csv(data, output_file):
         """Export results to CSV format"""
-        with open(output_file, 'w', newline='', encoding='utf-8-sig') as f:  # Changed to utf-8-sig for better Excel compatibility
+        with open(output_file, 'w', newline='', encoding='utf-8-sig') as f:
             writer = csv.writer(f)
             writer.writerow(['Mode', data['mode']])
             writer.writerow(['Time', datetime.now()])
@@ -148,13 +178,34 @@ class Exporter:
                 writer.writerow(['Group1', file])
             for file in sorted(data['unique2']):
                 writer.writerow(['Group2', file])
+            
+            # Frame mismatches if in advanced mode
+            if 'frame_mismatches' in data and data['frame_mismatches']:
+                writer.writerow([])
+                writer.writerow(['FRAME COUNT MISMATCHES'])
+                writer.writerow(['Basename', 'File (Group 1)', 'Frames (Group 1)', 
+                               'File (Group 2)', 'Frames (Group 2)', 'Difference', 
+                               'Path 1', 'Path 2'])
+                for mismatch in sorted(data['frame_mismatches'], key=lambda x: x['difference'], reverse=True):
+                    writer.writerow([
+                        mismatch['basename'],
+                        mismatch['file1'],
+                        mismatch['frames1'],
+                        mismatch['file2'],
+                        mismatch['frames2'],
+                        mismatch['difference'],
+                        mismatch['path1'],
+                        mismatch['path2']
+                    ])
 
     @staticmethod
     def to_html(data, output_file):
         """Export results to HTML format"""
-        mode_description = ("Normal (comparing all files by basename.extension)" 
-                           if data['mode'] == 'normal' 
-                           else "Proxy (comparing video files by basename only)")
+        mode_description = {
+            'normal': "Normal (comparing all files by basename.extension)",
+            'proxy': "Proxy (comparing video files by basename only)",
+            'proxy_advanced': "Proxy Advanced (comparing video files by basename and frame count)"
+        }.get(data['mode'], data['mode'])
         
         # Format directory lists
         def format_dirs_html(dirs):
@@ -166,6 +217,40 @@ class Exporter:
         
         dirs1_html = format_dirs_html(data.get('dirs1', [data['path1']]))
         dirs2_html = format_dirs_html(data.get('dirs2', [data['path2']]))
+        
+        # Frame mismatches section
+        mismatch_html = ""
+        if 'frame_mismatches' in data and data['frame_mismatches']:
+            mismatch_rows = ''.join(f'''
+                <tr class="mismatch">
+                    <td>{html.escape(m['basename'])}</td>
+                    <td>{html.escape(m['file1'])}</td>
+                    <td>{m['frames1']:,}</td>
+                    <td>{html.escape(m['file2'])}</td>
+                    <td>{m['frames2']:,}</td>
+                    <td><strong>{m['difference']:,}</strong></td>
+                </tr>
+            ''' for m in sorted(data['frame_mismatches'], key=lambda x: x['difference'], reverse=True))
+            
+            mismatch_html = f'''
+            <div class="section">
+                <div class="warning-box">
+                    <h3>⚠️ Frame Count Mismatches ({len(data['frame_mismatches'])} files)</h3>
+                    <p>These files exist in both groups but have different frame counts, indicating incomplete or corrupted proxy files:</p>
+                </div>
+                <table>
+                    <tr>
+                        <th>Basename</th>
+                        <th>File (Group 1)</th>
+                        <th>Frames (Group 1)</th>
+                        <th>File (Group 2)</th>
+                        <th>Frames (Group 2)</th>
+                        <th>Difference</th>
+                    </tr>
+                    {mismatch_rows}
+                </table>
+            </div>
+            '''
         
         html_content = f"""<!DOCTYPE html>
 <html lang="en">
@@ -182,6 +267,8 @@ class Exporter:
         <strong>Mode:</strong> {mode_description}<br>
         <strong>Time:</strong> {datetime.now()}
     </div>
+    
+    {mismatch_html}
     
     <div class="section">
         <div class="path-header">
