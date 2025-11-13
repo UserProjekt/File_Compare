@@ -105,8 +105,6 @@ Proxy comparison with frame count verification to detect incomplete proxy files.
 
 - **Requirements**: mediainfo CLI tool must be installed
 - **Use case**: Verify that proxy files have the same number of frames as originals
-- **Detection**: Identifies proxies that may have been cut short during encoding
-- **Usage**: `-m proxyadv`
 
 ## Examples
 
