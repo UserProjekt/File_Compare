@@ -76,9 +76,8 @@ python file_compare.py [OPTIONS] PATH1 PATH2
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `-f, --format` | Output format: `json`, `txt`, `csv`, `html` | `txt` |
+| `-f, --format` | Output format(s): `json`, `txt`, `csv`, `html` (multiple allowed) | `html` |
 | `-m, --mode` | Comparison mode: `normal`, `proxy`, `proxyadv` | `normal` |
-| `-o, --output` | Output filename | `comparison_results_[datetime].[format]` |
 | `-h, --help` | Show help message | - |
 
 
@@ -120,8 +119,8 @@ python file_compare.py -m proxy /path/to/originals /path/to/proxies
 # Advanced proxy mode (verify frame counts)
 python file_compare.py -m proxyadv /path/to/originals /path/to/proxies
 
-# Export to HTML
-python file_compare.py -f html /path/to/dir1 /path/to/dir2
+# Export to HTML and JSON
+python file_compare.py -f html json /path/to/dir1 /path/to/dir2
 ```
 
 ### Compare Multiple Combined Directories
@@ -133,8 +132,8 @@ python file_compare.py "/path/dir1+/path/dir2" "/path/dir3"
 # Compare two groups of directories
 python file_compare.py "/path/a1+/path/a2+/path/a3" "/path/b1+/path/b2"
 
-# With custom output
-python file_compare.py -f html -o results.html "/dir1+/dir2" "/dir3+/dir4"
+# With multiple output formats
+python file_compare.py -f html json "/dir1+/dir2" "/dir3+/dir4"
 ```
 
 ### Real-World Scenarios
@@ -171,7 +170,7 @@ python file_compare.py -f json \
 **Quality Control for Proxy Encoding:**
 ```zsh
 # Verify all proxies are complete (not truncated)
-python file_compare.py -m proxyadv -o proxy_qc.html -f html \
+python file_compare.py -m proxyadv -f html \
   /Production/Camera_Originals \
   /Production/Proxies
 ```

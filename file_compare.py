@@ -89,10 +89,9 @@ Examples:
     parser.add_argument('path1', help='First directory or directories (use + to combine multiple)')
     parser.add_argument('path2', help='Second directory or directories (use + to combine multiple)')
     parser.add_argument('-f', '--format', choices=['json', 'txt', 'csv', 'html'], 
-                       default='txt', help='Output format (default: txt)')
+                       default=['html'], nargs='+', help='Output format(s) (default: html)')
     parser.add_argument('-m', '--mode', choices=['normal', 'proxy', 'proxyadv'],
                        default='normal', help='Comparison mode (default: normal)')
-    parser.add_argument('-o', '--output', help='Output filename')
     
     args = parser.parse_args()
     
@@ -165,14 +164,8 @@ Examples:
     print(f"Files only in group 1: {len(unique1)}")
     print(f"Files only in group 2: {len(unique2)}")
     
-    # Generate output filename if not provided
-    if not args.output:
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        args.output = f"comparison_results_{timestamp}.{args.format}"
-    
-    # Ensure output has correct extension
-    if not args.output.endswith(f'.{args.format}'):
-        args.output = f"{args.output}.{args.format}"
+    # Generate timestamp for filenames
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     
     # Prepare data for the exporters (matching the structure they expect)
     # Get full paths for unique files
@@ -204,19 +197,26 @@ Examples:
     if frame_mismatches:
         export_data['frame_mismatches'] = frame_mismatches
     
-    # Export results
-    output_path = Path(args.output).resolve()
+    # Export results for each requested format
+    generated_files = []
+    for fmt in args.format:
+        output_filename = f"comparison_results_{timestamp}.{fmt}"
+        output_path = Path(output_filename).resolve()
+        
+        if fmt == 'json':
+            export_to_json(export_data, output_filename)
+        elif fmt == 'csv':
+            export_to_csv(export_data, output_filename)
+        elif fmt == 'html':
+            export_to_html(export_data, output_filename)
+        else:  # txt
+            export_to_txt(export_data, output_filename)
+        
+        generated_files.append(str(output_path))
     
-    if args.format == 'json':
-        export_to_json(export_data, args.output)
-    elif args.format == 'csv':
-        export_to_csv(export_data, args.output)
-    elif args.format == 'html':
-        export_to_html(export_data, args.output)
-    else:  # txt
-        export_to_txt(export_data, args.output)
-    
-    print(f"\nResults exported to: {output_path}")
+    print(f"\nResults exported to:")
+    for path in generated_files:
+        print(f"  - {path}")
     return 0
 
 if __name__ == '__main__':

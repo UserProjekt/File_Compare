@@ -50,7 +50,11 @@ New in v1.3.0:
     - Removed -a/--adv/--advanced flag
     - Advanced proxy mode is now directly selectable with -m proxyadv
     - Cleaner command-line interface
+
+New in v1.4.0:
+    - Support for multiple export formats simultaneously
+    - Removed -o/--output flag
 """
 
-__version__ = "1.3.0"
+__version__ = "1.4.0"
 __author__ = 'userprojekt'
