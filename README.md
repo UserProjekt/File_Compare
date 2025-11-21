@@ -145,6 +145,11 @@ python file_compare.py -m proxy -f html \
   /Volumes/Storage/Originals \
   /Volumes/EditDrive/Proxies
 
+# Compare original footage with proxy files and export to HTML and JSON
+python file_compare.py -m proxy -f html json \
+  /Volumes/Storage/Originals \
+  /Volumes/EditDrive/Proxies
+
 # Advanced verification with frame count checking
 python file_compare.py -m proxyadv -f html \
   /Volumes/Storage/Originals \
